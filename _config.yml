@@ -1,0 +1,14 @@
+title: ACAV
+logo: /assets/images/acav-logo.png
+description: Interactive Clang AST exploration for real C, C++, and Objective-C projects
+theme: jekyll-theme-cayman
+markdown: kramdown
+plugins:
+  - jekyll-seo-tag
+github:
+  is_project_page: true
+  repository_nwo: uvic-aurora/acav
+  repository_url: https://github.com/uvic-aurora/acav
+  owner_name: uvic-aurora
+  zip_url: https://github.com/uvic-aurora/acav/archive/refs/heads/main.zip
+  tar_url: https://github.com/uvic-aurora/acav/archive/refs/heads/main.tar.gz
