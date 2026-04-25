@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+
+#$!{
+# Aurora Clang AST Viewer (ACAV)
+# 
+# Copyright (c) 2026 Min Liu
+# Copyright (c) 2026 Michael David Adams
+# 
+# SPDX-License-Identifier: GPL-2.0-or-later
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <https://www.gnu.org/licenses/>.
+#}$!
+
+# This file is part of ACAV.
+set -e
+
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+
+# Resolve an image name, handling podman's localhost/ prefix.
+# Tries the given name, then with localhost/ prepended, then with it stripped.
+resolve_image() {
+    local name="$1"
+    local bare="${name#localhost/}"
+    if $runtime image inspect "$bare" &>/dev/null; then
+        echo "$bare"
+    elif $runtime image inspect "localhost/$bare" &>/dev/null; then
+        echo "localhost/$bare"
+    fi
+}
+
+# Auto-detect container runtime
+if command -v docker &>/dev/null; then
+    runtime=docker
+elif command -v podman &>/dev/null; then
+    runtime=podman
+else
+    echo "Error: Neither docker nor podman found."
+    exit 1
+fi
+echo "Using runtime: $runtime"
+
+# Find and load image
+tar_file="$(ls "$script_dir"/../acav-v*.tar.gz 2>/dev/null | head -1)"
+
+# Try to determine image name from tar file or find already loaded image
+if [ -n "$tar_file" ] && [ -f "$tar_file" ]; then
+    # Extract image name from tar file (e.g., acav-v1.0.0.tar.gz -> acav:v1.0.0)
+    tar_basename="$(basename "$tar_file" .tar.gz)"
+    image_name="${tar_basename/-/:}"
+else
+    # No tar file, try to find an already loaded acav image
+    image_name="$($runtime images --format '{{.Repository}}:{{.Tag}}' | grep -E '^(localhost/)?acav:v' | head -1)"
+fi
+
+if [ -z "$image_name" ]; then
+    echo "Error: No tar file found and no acav image loaded."
+    exit 1
+fi
+
+# Resolve the image name (handles podman's localhost/ prefix)
+resolved="$(resolve_image "$image_name")"
+if [ -z "$resolved" ]; then
+    if [ -z "$tar_file" ] || [ ! -f "$tar_file" ]; then
+        echo "Error: Image $image_name not loaded and no tar file found."
+        exit 1
+    fi
+    echo "Loading image from $tar_file..."
+    $runtime load -i "$tar_file"
+    resolved="$(resolve_image "$image_name")"
+    if [ -z "$resolved" ]; then
+        echo "Error: Failed to find image $image_name after loading $tar_file."
+        exit 1
+    fi
+fi
+image_name="$resolved"
+
+echo "Image name: $image_name"
+
+# Build runtime options
+opts=(--rm -it)
+
+# Precheck display prerequisites — abort early if something is missing
+if [ ! -x "$script_dir/print_desktop_options" ]; then
+    echo "Error: $script_dir/print_desktop_options not found; cannot configure display forwarding." >&2
+    exit 1
+fi
+
+precheck_warnings=$("$script_dir/print_desktop_options" 2>&1 >/dev/null)
+if [ -n "$precheck_warnings" ]; then
+    echo "$precheck_warnings" >&2
+    echo "" >&2
+    echo "Error: Display prerequisites not met. Fix the above and try again." >&2
+    exit 1
+fi
+
+# All clear — collect the actual display options
+while IFS= read -r line; do
+    opts+=("$line")
+done < <("$script_dir/print_desktop_options" 2>/dev/null)
+
+# Launch GUI with examples
+echo "Launching ACAV GUI..."
+$runtime run "${opts[@]}" "$image_name" acav -c /opt/acav/examples/compile_commands.json

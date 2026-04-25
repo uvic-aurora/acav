@@ -1,0 +1,72 @@
+# Doxyfile for ACAV
+# Generated values are substituted by CMake
+
+PROJECT_NAME           = "@PROJECT_NAME@"
+PROJECT_NUMBER         = @ACAV_VERSION_STRING@
+PROJECT_BRIEF          = "Abstract Syntax Tree (AST) visualization tool for C, C++, and Objective-C"
+OUTPUT_DIRECTORY       = @DOXYGEN_OUTPUT_DIR@
+
+# Input settings
+INPUT                  = @CMAKE_SOURCE_DIR@/include \
+                         @CMAKE_SOURCE_DIR@/app/include \
+                         @CMAKE_SOURCE_DIR@/common \
+                         @CMAKE_SOURCE_DIR@/app/core \
+                         @CMAKE_SOURCE_DIR@/app/ui \
+                         @CMAKE_SOURCE_DIR@/docs/manual \
+                         @CMAKE_SOURCE_DIR@/INSTALL.txt \
+                         @CMAKE_SOURCE_DIR@/ACAV_USER_MANUAL.md \
+                         @CMAKE_SOURCE_DIR@/DOCKER_IMAGE_README.md \
+                         @CMAKE_SOURCE_DIR@/CHANGELOG.md
+INCLUDE_PATH           = @CMAKE_SOURCE_DIR@
+FILE_PATTERNS          = *.h *.hpp *.cpp *.md *.txt
+EXTENSION_MAPPING      = txt=md
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */test/* */unittests/* *_autogen/* */CMakeLists.txt
+USE_MDFILE_AS_MAINPAGE = @CMAKE_SOURCE_DIR@/docs/manual/index.md
+MARKDOWN_SUPPORT       = YES
+TOC_INCLUDE_HEADINGS   = 3
+
+# Output settings
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+HTML_OUTPUT            = html
+HTML_EXTRA_STYLESHEET  = @CMAKE_SOURCE_DIR@/docs/manual/manual.css
+LAYOUT_FILE            = @CMAKE_SOURCE_DIR@/docs/DoxygenLayout.xml
+
+# Extraction settings
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = NO
+
+# Documentation style
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+BRIEF_MEMBER_DESC      = YES
+REPEAT_BRIEF           = YES
+ALWAYS_DETAILED_SEC    = NO
+INLINE_INHERITED_MEMB  = NO
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = @CMAKE_SOURCE_DIR@
+
+# Build settings
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_IF_DOC_ERROR      = YES
+
+# Source browsing
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+# Graph settings (requires Graphviz)
+HAVE_DOT               = @DOXYGEN_HAVE_DOT@
+DOT_IMAGE_FORMAT       = svg
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = NO
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES

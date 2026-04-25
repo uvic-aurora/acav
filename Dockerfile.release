@@ -1,0 +1,133 @@
+#$!{
+# Aurora Clang AST Viewer (ACAV)
+# 
+# Copyright (c) 2026 Min Liu
+# Copyright (c) 2026 Michael David Adams
+# 
+# SPDX-License-Identifier: GPL-2.0-or-later
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <https://www.gnu.org/licenses/>.
+#}$!
+
+# =============================================================================
+# ACAV Release Dockerfile
+# =============================================================================
+# Multi-stage build:
+#   Stage 1: Build binaries and package dependencies in dev environment
+#   Stage 2: Copy only binaries + dependencies into clean Fedora runtime
+#
+# This approach results in a much smaller image (~700MB vs ~3.4GB) because
+# the final image only contains runtime dependencies, not build tools.
+#
+# LLVM / Fedora version mapping:
+#   LLVM 20 → fedora-llvm20 dev image → Fedora 42 runtime
+#   LLVM 21 → fedora-llvm21 dev image → Fedora 43 runtime
+#   LLVM 22 → fedora-llvm22 dev image → Fedora 44 runtime
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Stage 1: Build and package
+# -----------------------------------------------------------------------------
+ARG LLVM_VERSION=22
+ARG FEDORA_VERSION=44
+ARG BASE_IMAGE="ghcr.io/smartai/llvm-qt-dev-env:fedora-llvm${LLVM_VERSION}"
+FROM ${BASE_IMAGE} AS builder
+
+ARG VERSION="unknown"
+
+WORKDIR /workspace
+COPY . .
+
+# Build binaries in Release mode
+RUN echo "→ Configuring CMake with version: ${VERSION}..." && \
+    cmake --preset=linux-release -DACAV_VERSION_STRING=${VERSION} && \
+    echo "→ Building binaries..." && \
+    cmake --build out/linux-release -j$(nproc) --target acav make-ast query-dependencies
+
+# Verify binaries were built
+RUN test -f out/linux-release/bin/acav && \
+    test -f out/linux-release/bin/make-ast && \
+    test -f out/linux-release/bin/query-dependencies || \
+    (echo "ERROR: Binaries not found" && exit 1)
+
+# Run packaging script to collect all dependencies
+RUN echo "→ Packaging dependencies..." && \
+    bash scripts/package-release.sh ${VERSION} /opt/acav out/linux-release
+
+# Copy example files
+RUN mkdir -p /opt/acav/examples && \
+    cp docker/examples/calculator.cpp /opt/acav/examples/ && \
+    cp docker/examples/calculator.hpp /opt/acav/examples/
+
+# Generate compile_commands.json for examples (detect clang version dynamically)
+RUN CLANG_MAJOR=$(clang --version | grep -oP '\d+' | head -1) && \
+    cat > /opt/acav/examples/compile_commands.json <<EOF
+[
+  {
+    "directory": "/opt/acav/examples",
+    "command": "clang++ -std=c++20 -I/opt/acav/examples -resource-dir=/opt/acav/lib/clang/${CLANG_MAJOR} -c /opt/acav/examples/calculator.cpp -o /opt/acav/examples/calculator.o",
+    "file": "/opt/acav/examples/calculator.cpp"
+  }
+]
+EOF
+
+# -----------------------------------------------------------------------------
+# Stage 2: Clean Fedora runtime image (version must match dev environment)
+# -----------------------------------------------------------------------------
+ARG FEDORA_VERSION
+FROM fedora:${FEDORA_VERSION}
+
+ARG VERSION="unknown"
+
+LABEL org.opencontainers.image.title="ACAV - Clang AST Viewer"
+LABEL org.opencontainers.image.description="A tool for visualizing and exploring Clang Abstract Syntax Trees with support for C++20 modules"
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.source="https://github.com/uvic-aurora/acav"
+LABEL org.opencontainers.image.url="https://github.com/uvic-aurora/acav"
+LABEL org.opencontainers.image.documentation="https://uvic-aurora.github.io/acav-manual/index.html"
+
+# Install minimal runtime dependencies not bundled with the app
+# xkeyboard-config: XKB data for keyboard layouts (required by Wayland)
+RUN dnf install -y --setopt=install_weak_deps=False xkeyboard-config && \
+    dnf clean all && rm -rf /var/cache/dnf
+
+# Copy the packaged release from builder (includes binaries, libs, fonts, examples)
+COPY --from=builder /opt/acav /opt/acav
+
+# Create workspace directory for user files
+RUN mkdir -p /workspace
+
+# Add binaries to PATH
+ENV PATH="/opt/acav/bin:${PATH}"
+
+# Set UTF-8 locale to avoid Qt locale warnings
+ENV LANG="C.UTF-8"
+ENV LC_ALL="C.UTF-8"
+
+# Set fontconfig to use bundled configuration and fonts
+ENV FONTCONFIG_PATH="/opt/acav/etc/fonts"
+ENV FONTCONFIG_FILE="/opt/acav/etc/fonts/fonts.conf"
+
+# Suppress Qt plugin loading debug messages (plugins still work, just quieter)
+ENV QT_LOGGING_RULES="qt.qpa.plugin=false"
+
+# Default to Wayland for better performance on modern Linux desktops
+# Override with -e QT_QPA_PLATFORM=xcb for X11, or =offscreen for headless/CI
+ENV QT_QPA_PLATFORM="wayland"
+
+# /workspace is ready for user files
+WORKDIR /workspace
+
+# Default command
+CMD ["acav", "--help"]

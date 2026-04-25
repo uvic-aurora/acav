@@ -1,0 +1,92 @@
+#$!{
+# Aurora Clang AST Viewer (ACAV)
+# 
+# Copyright (c) 2026 Min Liu
+# Copyright (c) 2026 Michael David Adams
+# 
+# SPDX-License-Identifier: GPL-2.0-or-later
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <https://www.gnu.org/licenses/>.
+#}$!
+
+# This file is part of ACAV.
+# Docker build context exclusions
+# Exclude all build directories to reduce context size
+
+# Build directories (all patterns)
+build/
+build-*/
+build-linux/
+build-linux-release/
+build-linux-debug/
+build-release/
+out/
+.cache/
+
+# Test directories (exclude everything except source files)
+test/
+
+# Unittests (not needed for runtime)
+unittests/
+
+# Git
+.git/
+.github/
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Distribution output
+dist/
+*.tar
+*.tar.gz
+*.zip
+
+# Temporary/Object files
+*.o
+*.a
+*.so
+*.dylib
+*.pcm
+*.ifc
+
+# Misc (examples, tools, etc not needed)
+misc/
+examples/
+!docker/examples/
+todos/
+
+# Documentation (not needed in runtime)
+docs/
+*.md
+!docker/examples/README.md
+.claude/
+.cursor/
+build/
+build-debug
+buld-fresh
+
+
+# Test binaries
+test_rusage_units
+test_rusage_units.c
+test_memory_profiling.cpp
+
+# ignore data
+data/
+

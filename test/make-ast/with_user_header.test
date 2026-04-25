@@ -1,0 +1,15 @@
+# Test make-ast with user header files
+# REQUIRES: make-ast
+
+# RUN: rm -rf %t && mkdir -p %t
+# RUN: cp %S/Inputs/with_header.h %t/
+# RUN: cp %S/Inputs/with_header.cpp %t/
+# RUN: sed -e 's|%{inputs}|%t|g' -e 's|%{resource-dir}|%resource-dir|g' -e 's|%{isysroot-flag}|%isysroot-flag|g' %S/Inputs/with_header_compdb.json > %t/compile_commands.json
+
+# RUN: %make-ast --compilation-database=%t/compile_commands.json --output=%t/output.ast --source=%t/with_header.cpp 2>&1 | %FileCheck %s
+
+# CHECK: Successfully saved AST to: {{.*}}output.ast
+
+# Verify the AST file exists
+# RUN: test -f %t/output.ast
+# RUN: test -s %t/output.ast

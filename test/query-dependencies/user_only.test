@@ -1,0 +1,36 @@
+# Test query_dependencies with only user headers (no system headers)
+# REQUIRES: query-deps
+
+# RUN: rm -rf %t && mkdir -p %t
+# RUN: cp %S/Inputs/user_only_main.cpp %t/
+# RUN: cp %S/Inputs/user_only_header1.h %t/
+# RUN: cp %S/Inputs/user_only_header2.h %t/
+# RUN: sed -e 's|%{inputs}|%t|g' -e 's|%{resource-dir}|%resource-dir|g' -e 's|%{isysroot-flag}|%isysroot-flag|g' %S/Inputs/user_only_compdb.json > %t/compile_commands.json
+
+# RUN: %query-deps --compilation-database=%t/compile_commands.json --output=%t/output.json
+# RUN: cat %t/output.json | %FileCheck %s
+
+# Verify the structure
+# CHECK: "files": [
+# CHECK-NEXT:   {
+# CHECK:     "headerCount": 2
+# CHECK:     "headers": [
+
+# Verify user_only_header2.h is direct (included by main)
+# CHECK:       "direct": true
+# CHECK:       "inclusionKind": "C_User"
+# CHECK:       "path": "{{.*}}user_only_header2.h"
+
+# Verify user_only_header1.h is indirect (included by user_only_header2.h)
+# CHECK:       "direct": false
+# CHECK:       "inclusionKind": "C_User"
+# CHECK:       "path": "{{.*}}user_only_header1.h"
+
+# CHECK:     "path": "{{.*}}user_only_main.cpp"
+
+# Verify statistics show only 2 headers (no system headers)
+# CHECK: "statistics": {
+# CHECK-DAG:   "failureCount": 0
+# CHECK-DAG:   "successCount": 1
+# CHECK-DAG:   "totalCount": 1
+# CHECK-DAG:   "totalHeaderCount": 2

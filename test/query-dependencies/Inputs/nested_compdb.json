@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "%{inputs}",
+    "command": "clang++ -std=c++20 %{isysroot-flag} -resource-dir=%{resource-dir} -c %{inputs}/nested_includes.cpp -o %{inputs}/nested_includes.o",
+    "file": "%{inputs}/nested_includes.cpp"
+  }
+]

@@ -1,0 +1,76 @@
+# Installation {#installation}
+
+\tableofcontents
+
+## Prerequisites
+
+Before building ACAV, make sure the host system provides:
+
+- CMake 3.20 or later,
+- LLVM and Clang development libraries for versions 20 through 22,
+- Qt 6 with the Widgets module, and
+- a compiler with C++20 support.
+
+Using ACAV on a project also requires a valid JSON compilation database such as
+`compile_commands.json`. ACAV relies on this file to recover the compiler
+flags, include paths, and language standard for each source file.
+
+Common ways to produce a compilation database include:
+
+- enabling `CMAKE_EXPORT_COMPILE_COMMANDS=ON` in CMake,
+- running `bear -- make`, or
+- using another tool that records compile commands for the build system in use.
+
+## Native Build
+
+ACAV ships CMake presets for common development environments.
+
+### Linux
+
+```bash
+cmake --preset=linux-debug
+cmake --build out/linux-debug -j$(nproc)
+```
+
+### macOS
+
+```bash
+cmake --preset=macos-debug
+cmake --build out/macos-debug
+```
+
+These builds produce the `acav`, `make-ast`, and `query-dependencies`
+executables in the corresponding `out/.../bin` directory.
+
+## Containerized Build and Runtime
+
+For a reproducible development environment, ACAV can be built in a container
+with the repository helper script:
+
+```bash
+./scripts/build.sh build
+```
+
+To run the prebuilt OCI demo image from a release bundle, start with the
+[Docker/Podman demo image quick start](demo_image.html#demo_image_quick_start).
+For custom image, runtime, workspace, and desktop-display options, see
+[Running the GUI Application](demo_image.html#demo_image_running_gui).
+The same source instructions are maintained in
+[DOCKER_IMAGE_README.md](DOCKER_IMAGE_README.md).
+
+## Launching ACAV
+
+Once ACAV is installed, start the GUI by supplying a compilation database:
+
+```bash
+acav -c /path/to/compile_commands.json
+```
+
+If you are running directly from a build tree instead of an installed prefix,
+invoke the binary from `out/linux-debug/bin` or `out/macos-debug/bin`.
+
+You can also launch `acav` without arguments and then open the compilation
+database from **File -> Open Compilation Database**.
+
+After launch, continue with the [User Manual](ACAV_USER_MANUAL.md) for the GUI
+workflow and command-line tool reference.

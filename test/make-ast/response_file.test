@@ -1,0 +1,15 @@
+# Test make-ast with response file expansion
+# REQUIRES: make-ast
+
+# RUN: rm -rf %t && mkdir -p %t
+# RUN: cp %S/Inputs/response_file.cpp %t/
+# RUN: sed -e 's|%{inputs}|%t|g' -e 's|%{resource-dir}|%resource-dir|g' -e 's|%{isysroot-flag}|%isysroot-flag|g' %S/Inputs/compile_flags.rsp > %t/compile_flags.rsp
+# RUN: sed -e 's|%{inputs}|%t|g' -e 's|%{resource-dir}|%resource-dir|g' -e 's|%{isysroot-flag}|%isysroot-flag|g' %S/Inputs/response_file_compdb.json > %t/compile_commands.json
+
+# RUN: %make-ast --compilation-database=%t/compile_commands.json --output=%t/output.ast --source=%t/response_file.cpp 2>&1 | %FileCheck %s
+
+# CHECK: Successfully saved AST to: {{.*}}output.ast
+
+# Verify the AST file was created
+# RUN: test -f %t/output.ast
+# RUN: test -s %t/output.ast

@@ -1,0 +1,157 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 24,
+        "patch": 0
+    },
+    "include": [],
+    "configurePresets": [
+        {
+            "name": "default-base",
+            "hidden": true,
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "type": "STRING",
+                    "value": "Debug"
+                }
+            }
+        },
+        {
+            "name": "macos-debug",
+            "displayName": "macOS Debug",
+            "description": "Configure the project for macOS builds into ./out/macos-debug",
+            "inherits": "default-base",
+            "binaryDir": "${sourceDir}/out/macos-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "macos-release",
+            "displayName": "macOS Release",
+            "description": "Configure the project for macOS Release builds into ./out/macos-release",
+            "inherits": "default-base",
+            "binaryDir": "${sourceDir}/out/macos-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "type": "STRING",
+                    "value": "Release"
+                }
+            }
+        },
+        {
+            "name": "linux-debug",
+            "displayName": "Linux Debug (Docker)",
+            "description": "Configure the project for Linux builds inside ./out/linux-debug. Run this preset from within the docker image.",
+            "inherits": "default-base",
+            "binaryDir": "${sourceDir}/out/linux-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "linux-release",
+            "displayName": "Linux Release (Docker)",
+            "description": "Configure the project for Linux Release builds inside ./out/linux-release.",
+            "inherits": "default-base",
+            "binaryDir": "${sourceDir}/out/linux-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "type": "STRING",
+                    "value": "Release"
+                },
+                "ACAV_BUILD_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "macos-asan",
+            "displayName": "macOS AddressSanitizer",
+            "description": "Debug build with AddressSanitizer/LeakSanitizer enabled",
+            "inherits": "default-base",
+            "binaryDir": "${sourceDir}/out/macos-asan",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "cacheVariables": {
+                "ACAV_ENABLE_ASAN": "ON"
+            }
+        },
+        {
+            "name": "linux-asan",
+            "displayName": "Linux AddressSanitizer",
+            "description": "Debug build with AddressSanitizer/LeakSanitizer enabled",
+            "inherits": "default-base",
+            "binaryDir": "${sourceDir}/out/linux-asan",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "cacheVariables": {
+                "ACAV_ENABLE_ASAN": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "macos-build",
+            "configurePreset": "macos-debug"
+        },
+        {
+            "name": "macos-release-build",
+            "configurePreset": "macos-release"
+        },
+        {
+            "name": "linux-build",
+            "configurePreset": "linux-debug"
+        },
+        {
+            "name": "macos-asan-build",
+            "configurePreset": "macos-asan"
+        },
+        {
+            "name": "linux-asan-build",
+            "configurePreset": "linux-asan"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "macos-test",
+            "configurePreset": "macos-debug"
+        },
+        {
+            "name": "macos-release-test",
+            "configurePreset": "macos-release"
+        },
+        {
+            "name": "linux-test",
+            "configurePreset": "linux-debug"
+        },
+        {
+            "name": "macos-asan-test",
+            "configurePreset": "macos-asan"
+        },
+        {
+            "name": "linux-asan-test",
+            "configurePreset": "linux-asan"
+        }
+    ]
+}

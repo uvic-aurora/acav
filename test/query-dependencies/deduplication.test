@@ -1,0 +1,24 @@
+# Test 2: Header deduplication - header included both directly and indirectly
+# REQUIRES: query-deps
+
+# RUN: rm -rf %t && mkdir -p %t
+# RUN: cp %S/Inputs/with_user_header.cpp %t/
+# RUN: cp %S/Inputs/user_header.h %t/
+# RUN: sed -e 's|%{inputs}|%t|g' -e 's|%{resource-dir}|%resource-dir|g' -e 's|%{isysroot-flag}|%isysroot-flag|g' %S/Inputs/with_user_header_compdb.json > %t/compile_commands.json
+
+# RUN: %query-deps --compilation-database=%t/compile_commands.json --output=%t/output.json
+# RUN: cat %t/output.json | %FileCheck %s
+
+# user_header.h includes <string>, so string appears as indirect
+# iostream is only directly included
+# Verify deduplication: each header appears exactly once
+
+# CHECK: "files": [
+# CHECK-NEXT:   {
+# CHECK:     "headerCount":
+# CHECK:     "path": "{{/.*}}with_user_header.cpp"
+# CHECK: "statistics": {
+# CHECK-DAG:   "failureCount": 0
+# CHECK-DAG:   "successCount": 1
+# CHECK-DAG:   "totalCount": 1
+# CHECK-DAG:   "totalHeaderCount":

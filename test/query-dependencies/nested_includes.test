@@ -1,0 +1,21 @@
+# Test query_dependencies with nested includes
+# REQUIRES: query-deps
+
+# RUN: rm -rf %t && mkdir -p %t
+# RUN: cp %S/Inputs/nested_includes.cpp %t/
+# RUN: cp %S/Inputs/nested_header_level1.h %t/
+# RUN: cp %S/Inputs/nested_header_level2.h %t/
+# RUN: sed -e 's|%{inputs}|%t|g' -e 's|%{resource-dir}|%resource-dir|g' -e 's|%{isysroot-flag}|%isysroot-flag|g' %S/Inputs/nested_compdb.json > %t/compile_commands.json
+
+# RUN: %query-deps --compilation-database=%t/compile_commands.json --output=%t/output.json
+# RUN: cat %t/output.json | %FileCheck %s
+
+# CHECK: "files": [
+# CHECK-NEXT:   {
+# CHECK:     "headerCount":
+# CHECK:     "path": "{{.*}}nested_includes.cpp"
+# CHECK: "statistics": {
+# CHECK-DAG:   "failureCount": 0
+# CHECK-DAG:   "successCount": 1
+# CHECK-DAG:   "totalCount": 1
+# CHECK-DAG:   "totalHeaderCount":

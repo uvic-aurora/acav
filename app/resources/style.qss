@@ -1,0 +1,197 @@
+/*$!{
+* Aurora Clang AST Viewer (ACAV)
+* 
+* Copyright (c) 2026 Min Liu
+* Copyright (c) 2026 Michael David Adams
+* 
+* SPDX-License-Identifier: GPL-2.0-or-later
+* 
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+* 
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+* 
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, see <https://www.gnu.org/licenses/>.
+}$!*/
+
+/*
+ * This file is part of ACAV.
+ */
+
+/* ============================================================
+ * ACAV — Unified Application Stylesheet
+ * ============================================================
+ * All colors use palette() references so the theme adapts
+ * automatically to the OS light/dark mode via Qt Fusion style.
+ * Only accent colors are hardcoded (they look fine on both).
+ * ============================================================ */
+
+/* --- Search / Filter QLineEdits -------------------------------- */
+
+QLineEdit[searchField="true"] {
+  border: 1px solid palette(mid);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background-color: palette(base);
+  color: palette(text);
+  selection-background-color: palette(highlight);
+  selection-color: palette(highlighted-text);
+}
+
+QLineEdit[searchField="true"]:focus {
+  border: 1px solid #0078d4;
+}
+
+/* --- Search Navigation Buttons --------------------------------- */
+
+QToolButton[searchButton="true"] {
+  border: 1px solid palette(mid);
+  border-radius: 4px;
+  padding: 3px 10px;
+  background-color: palette(button);
+  color: palette(button-text);
+}
+
+QToolButton[searchButton="true"]:hover {
+  background-color: palette(midlight);
+}
+
+QToolButton[searchButton="true"]:pressed {
+  background-color: palette(dark);
+  color: palette(light);
+}
+
+/* --- Search Status Labels -------------------------------------- */
+
+QLabel[searchStatus="true"] {
+  color: palette(text);
+  background-color: palette(alternate-base);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+QLabel[searchStatus="error"] {
+  color: #c62828;
+  background-color: #ffebee;
+  border: 1px solid #ef9a9a;
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+/* --- Source Code View ------------------------------------------- */
+
+QPlainTextEdit#sourceCodeView {
+  background-color: palette(base);
+  color: palette(text);
+  border: 1px solid palette(mid);
+}
+
+/* --- NodeCycleWidget (popup) ----------------------------------- */
+
+NodeCycleWidget {
+  background-color: palette(window);
+  border: 1px solid palette(mid);
+  border-radius: 5px;
+  padding: 10px;
+}
+
+/* --- AST Compilation Warning Banner ---------------------------- */
+
+QLabel#astCompilationWarningLabel {
+  color: #c62828;
+  background-color: #ffebee;
+  border: 1px solid #ef9a9a;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+/* --- QTreeView tweaks ------------------------------------------ */
+
+QTreeView {
+  border: none;
+  background-color: palette(base);
+  alternate-background-color: palette(alternate-base);
+}
+
+QTreeView::item:selected {
+  background-color: palette(highlight);
+  color: palette(highlighted-text);
+}
+
+/* --- Dock widget borders for visual separation ----------------- */
+
+QDockWidget {
+  border: none;
+}
+
+QDockWidget::separator {
+  width: 1px;
+  background: palette(mid);
+}
+
+/* Left border on Declaration Context to separate from AST */
+#declContextView {
+  border-left: 1px solid palette(mid);
+}
+
+/* --- QToolButton in docks (consistent with search buttons) ----- */
+
+QToolButton#astSearchQuickButton {
+  border: 1px solid palette(mid);
+  border-radius: 4px;
+  padding: 3px 10px;
+  background-color: palette(button);
+  color: palette(button-text);
+}
+
+QToolButton#astSearchQuickButton:hover {
+  background-color: palette(midlight);
+}
+
+/* --- Scroll bars (slim, modern) -------------------------------- */
+
+QScrollBar:vertical {
+  width: 10px;
+  background: transparent;
+}
+
+QScrollBar::handle:vertical {
+  background: palette(mid);
+  border-radius: 4px;
+  min-height: 30px;
+}
+
+QScrollBar::handle:vertical:hover {
+  background: palette(dark);
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+  height: 0px;
+}
+
+QScrollBar:horizontal {
+  height: 10px;
+  background: transparent;
+}
+
+QScrollBar::handle:horizontal {
+  background: palette(mid);
+  border-radius: 4px;
+  min-width: 30px;
+}
+
+QScrollBar::handle:horizontal:hover {
+  background: palette(dark);
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+  width: 0px;
+}

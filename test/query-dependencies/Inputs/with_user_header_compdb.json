@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "%{inputs}",
+    "command": "clang++ -std=c++20 %{isysroot-flag} -resource-dir=%{resource-dir} -c %{inputs}/with_user_header.cpp -o %{inputs}/with_user_header.o",
+    "file": "%{inputs}/with_user_header.cpp"
+  }
+]

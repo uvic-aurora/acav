@@ -1,0 +1,187 @@
+#$!{
+# Aurora Clang AST Viewer (ACAV)
+# 
+# Copyright (c) 2026 Min Liu
+# Copyright (c) 2026 Michael David Adams
+# 
+# SPDX-License-Identifier: GPL-2.0-or-later
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <https://www.gnu.org/licenses/>.
+#}$!
+
+# This file is part of ACAV.
+name: Deploy Manual
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-manual.yml"
+      - "CMakeLists.txt"
+      - "ACAV_USER_MANUAL.md"
+      - "CHANGELOG.md"
+      - "DOCKER_IMAGE_README.md"
+      - "INSTALL.txt"
+      - "LICENSE.txt"
+      - "AUTHORS"
+      - "NOTICE.txt"
+      - "docs/**"
+      - "docs/Doxyfile.in"
+      - "app/**"
+      - "common/**"
+      - "include/**"
+      - "make-ast/**"
+      - "query-dependencies/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-manual
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  deploy-manual:
+    name: Build and Deploy Doxygen Manual
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/smartai/llvm-qt-dev-env:fedora-llvm22
+    env:
+      TARGET_REPO_NAME: uvic-aurora/acav-manual
+      TARGET_BRANCH: gh-pages
+      BUILD_DIR: build-manual
+    steps:
+      - name: Install git (required before checkout for full history)
+        run: dnf install -y git
+
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Install documentation tools
+        run: dnf install -y doxygen graphviz openssh-clients
+
+      - name: Determine documentation version
+        working-directory: ${{ github.workspace }}
+        run: |
+          repo_dir="${{ github.workspace }}"
+          git config --global --add safe.directory "${repo_dir}"
+
+          version=""
+          if git -C "${repo_dir}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            git -C "${repo_dir}" fetch --force --tags origin || true
+            version="$(git -C "${repo_dir}" describe --tags --dirty --always 2>/dev/null || true)"
+          fi
+
+          if [ -z "${version}" ]; then
+            version="${GITHUB_SHA::12}"
+          fi
+
+          version="${version#release/}"
+          version="${version#refs/tags/}"
+
+          echo "ACAV_DOC_VERSION=${version}" >> "${GITHUB_ENV}"
+          echo "Using ACAV documentation version: ${version}"
+
+      - name: Configure documentation build
+        working-directory: ${{ github.workspace }}
+        run: >
+          cmake -S . -B "${BUILD_DIR}"
+          -DCMAKE_BUILD_TYPE=Release
+          -DACAV_BUILD_DOCS=ON
+          -DACAV_VERSION_STRING="${ACAV_DOC_VERSION}"
+          -DACAV_BUILD_TESTS=OFF
+
+      - name: Generate Doxygen HTML
+        working-directory: ${{ github.workspace }}
+        run: cmake --build "${BUILD_DIR}" --target docs -j"$(nproc)"
+
+      - name: Prepare site output
+        working-directory: ${{ github.workspace }}
+        run: |
+          site_dir="${BUILD_DIR}/docs/html"
+          test -f "${site_dir}/index.html"
+          touch "${site_dir}/.nojekyll"
+
+      - name: Configure SSH for deploy key
+        env:
+          MANUAL_DEPLOY_KEY: ${{ secrets.MANUAL_DEPLOY_KEY }}
+        run: |
+          install -d -m 700 "${HOME}/.ssh"
+          printf '%s\n' "${MANUAL_DEPLOY_KEY}" > "${HOME}/.ssh/private_key"
+          chmod 600 "${HOME}/.ssh/private_key"
+          ssh-keyscan -H -t rsa,ecdsa,ed25519 github.com > "${HOME}/.ssh/known_hosts"
+          chmod 644 "${HOME}/.ssh/known_hosts"
+          test -s "${HOME}/.ssh/known_hosts"
+          cat > "${HOME}/.ssh/config" <<EOF
+          Host github.com
+            HostName github.com
+            User git
+            IdentityFile ${HOME}/.ssh/private_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ${HOME}/.ssh/known_hosts
+          EOF
+          chmod 600 "${HOME}/.ssh/config"
+          eval "$(ssh-agent -s)"
+          ssh-add "${HOME}/.ssh/private_key"
+          {
+            echo "SSH_AUTH_SOCK=${SSH_AUTH_SOCK}"
+            echo "SSH_AGENT_PID=${SSH_AGENT_PID}"
+            echo "GIT_SSH_COMMAND=ssh -F ${HOME}/.ssh/config"
+            echo "TARGET_REPO=ssh://git@github.com/${TARGET_REPO_NAME}.git"
+          } >> "${GITHUB_ENV}"
+
+      - name: Publish manual to target repository
+        run: |
+          tmp_dir="$(mktemp -d)"
+          git clone "${TARGET_REPO}" "${tmp_dir}"
+          cd "${tmp_dir}"
+
+          git_push_extra_args=()
+          status=0
+          git ls-remote --exit-code --heads "${TARGET_REPO}" "${TARGET_BRANCH}" > /dev/null || status=$?
+          if [ "${status}" -ne 0 ] && [ "${status}" -ne 2 ]; then
+            echo "git ls-remote failed"
+            exit 1
+          fi
+
+          if [ "${status}" -eq 2 ]; then
+            git checkout --orphan "${TARGET_BRANCH}"
+            git_push_extra_args=(-u origin "${TARGET_BRANCH}")
+          else
+            git checkout "${TARGET_BRANCH}"
+          fi
+
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "${GITHUB_WORKSPACE}/${BUILD_DIR}/docs/html/." .
+
+          git add -A
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No manual changes to publish."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Deploy manual from ${GITHUB_SHA}"
+          git push "${git_push_extra_args[@]}"

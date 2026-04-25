@@ -1,0 +1,136 @@
+#$!{
+# Aurora Clang AST Viewer (ACAV)
+# 
+# Copyright (c) 2026 Min Liu
+# Copyright (c) 2026 Michael David Adams
+# 
+# SPDX-License-Identifier: GPL-2.0-or-later
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <https://www.gnu.org/licenses/>.
+#}$!
+
+# This file is part of ACAV.
+name: Release OCI Image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build, for example v1.0.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-image-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-release-image:
+    name: Build and Publish LLVM ${{ matrix.llvm }} Release Image
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        llvm: [20, 21, 22]
+
+    steps:
+      - name: Resolve release tag
+        id: release
+        run: |
+          tag="${{ github.event.release.tag_name || inputs.tag }}"
+          if [ -z "${tag}" ]; then
+            echo "Release tag is required" >&2
+            exit 1
+          fi
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Build OCI demo image archive
+        env:
+          ACAV_LLVM_VERSION: ${{ matrix.llvm }}
+          TAG: ${{ steps.release.outputs.tag }}
+          LLVM_VERSION: ${{ matrix.llvm }}
+        run: |
+          ./scripts/build.sh deploy --version "${TAG}-llvm${LLVM_VERSION}"
+
+      - name: Upload image archive to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          LLVM_VERSION: ${{ matrix.llvm }}
+        run: |
+          local_tag="${TAG}-llvm${LLVM_VERSION}"
+          dist_dir="out/dist/${local_tag}"
+          checksum_asset="${dist_dir}/SHA256SUMS-llvm${LLVM_VERSION}"
+
+          cp "${dist_dir}/SHA256SUMS" "${checksum_asset}"
+
+          gh release upload "${TAG}" \
+            "${dist_dir}/acav-${local_tag}.tar.gz" \
+            "${checksum_asset}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --clobber
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ github.token }}" | docker login ghcr.io \
+            -u "${{ github.actor }}" \
+            --password-stdin
+
+      - name: Push image to GitHub Container Registry
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          LLVM_VERSION: ${{ matrix.llvm }}
+          EVENT_NAME: ${{ github.event_name }}
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          local_tag="${TAG}-llvm${LLVM_VERSION}"
+          is_prerelease="${IS_PRERELEASE:-true}"
+
+          docker tag "acav:${local_tag}" "${image}:${local_tag}"
+          docker push "${image}:${local_tag}"
+
+          if [ "${LLVM_VERSION}" = "22" ]; then
+            docker tag "acav:${local_tag}" "${image}:${TAG}"
+            docker push "${image}:${TAG}"
+
+            if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+              is_prerelease="$(gh release view "${TAG}" \
+                --repo "${GITHUB_REPOSITORY}" \
+                --json isPrerelease \
+                --jq .isPrerelease)"
+            fi
+
+            if [ "${is_prerelease}" = "false" ]; then
+              docker tag "acav:${local_tag}" "${image}:latest"
+              docker push "${image}:latest"
+            fi
+          fi

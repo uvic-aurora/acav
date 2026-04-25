@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+
+#$!{
+# Aurora Clang AST Viewer (ACAV)
+# 
+# Copyright (c) 2026 Min Liu
+# Copyright (c) 2026 Michael David Adams
+# 
+# SPDX-License-Identifier: GPL-2.0-or-later
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <https://www.gnu.org/licenses/>.
+#}$!
+
+# This file is part of ACAV.
+set -euo pipefail
+
+# Print one docker/podman option per line, so callers can do:
+#   desktop_options=$(scripts/print_desktop_options)
+#   podman run $desktop_options ...
+#
+# Warnings and diagnostics go to stderr so they don't pollute the output.
+
+emit() {
+  printf '%s\n' "$1"
+}
+
+warn() {
+  printf 'WARNING: %s\n' "$1" >&2
+}
+
+is_macos() {
+  [[ "$(uname -s)" == "Darwin" ]]
+}
+
+is_wsl() {
+  [[ -f /proc/sys/fs/binfmt_misc/WSLInterop ]] || [[ -n "${WSL_DISTRO_NAME:-}" ]]
+}
+
+has_wslg() {
+  [[ -d /mnt/wslg ]]
+}
+
+# Track whether a Wayland socket was forwarded (determines QT_QPA_PLATFORM).
+has_wayland=0
+
+# ------------------------------------------------------------
+# 1) Detect DISPLAY (X11)
+# ------------------------------------------------------------
+
+display=""
+
+if [[ -n "${ACAV_DISPLAY:-}" ]]; then
+  # Explicit override
+  display="$ACAV_DISPLAY"
+elif is_macos; then
+  # macOS prerequisite checks
+  if [[ ! -d /Applications/Utilities/XQuartz.app ]]; then
+    warn "XQuartz is not installed. Install from https://www.xquartz.org/"
+    warn "After installing, enable 'Allow connections from network clients' in XQuartz preferences."
+  elif ! pgrep -qf Xquartz 2>/dev/null; then
+    warn "XQuartz does not appear to be running. Start it before launching ACAV."
+    warn "Ensure 'Allow connections from network clients' is enabled in XQuartz preferences."
+  fi
+
+  # Use the container runtime's host DNS name instead of a raw IP.
+  if command -v docker >/dev/null 2>&1; then
+    display="host.docker.internal:0"
+  elif command -v podman >/dev/null 2>&1; then
+    display="host.containers.internal:0"
+  else
+    display="${DISPLAY:-}"
+  fi
+elif is_wsl; then
+  if has_wslg; then
+    # WSLg provides both Wayland and X11
+    display="${DISPLAY:-:0}"
+  else
+    # No WSLg — user needs an external X server (e.g. VcXsrv)
+    display="${DISPLAY:-}"
+    if [[ -z "$display" ]]; then
+      warn "WSL2 without WSLg: \$DISPLAY is not set."
+      warn "Install an X server (e.g. VcXsrv) and set DISPLAY, or upgrade to a WSLg-capable Windows build."
+    fi
+  fi
+else
+  display="${DISPLAY:-}"
+fi
+
+if [[ -n "$display" ]]; then
+  emit --env
+  emit "DISPLAY=$display"
+fi
+
+# X11 socket (Linux hosts and WSLg)
+if [[ -d /tmp/.X11-unix ]]; then
+  emit --volume
+  emit "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+fi
+
+# Xauthority for X11 authentication
+xauth=""
+if [[ -n "${XAUTHORITY:-}" && -f "${XAUTHORITY:-}" ]]; then
+  xauth="$XAUTHORITY"
+elif [[ -f "$HOME/.Xauthority" ]]; then
+  xauth="$HOME/.Xauthority"
+fi
+
+if [[ -n "$xauth" ]]; then
+  emit --env
+  emit "HOME=$HOME"
+  emit --volume
+  emit "$xauth:$HOME/.Xauthority:rw"
+fi
+
+# ------------------------------------------------------------
+# 2) Wayland / XDG runtime
+# ------------------------------------------------------------
+
+if is_wsl && has_wslg; then
+  # WSLg exposes Wayland and XDG runtime under /mnt/wslg
+  wslg_runtime="/mnt/wslg/runtime-dir"
+  if [[ -S "$wslg_runtime/wayland-0" ]]; then
+    emit --env
+    emit "WAYLAND_DISPLAY=wayland-0"
+    emit --env
+    emit "XDG_RUNTIME_DIR=$wslg_runtime"
+    emit --env
+    emit "XDG_SESSION_TYPE=wayland"
+    emit --volume
+    emit "$wslg_runtime/wayland-0:$wslg_runtime/wayland-0:rw"
+    has_wayland=1
+  else
+    # WSLg present but no Wayland socket — fall back to X11
+    emit --env
+    emit "XDG_RUNTIME_DIR=$wslg_runtime"
+  fi
+else
+  # Standard Linux / non-WSL path
+  xdg_runtime="${XDG_RUNTIME_DIR:-}"
+  if [[ -z "$xdg_runtime" && -d "/run/user/$UID" ]]; then
+    xdg_runtime="/run/user/$UID"
+  fi
+
+  wayland_display="${WAYLAND_DISPLAY:-}"
+  if [[ -z "$wayland_display" && -n "$xdg_runtime" && -S "$xdg_runtime/wayland-0" ]]; then
+    wayland_display="wayland-0"
+  fi
+
+  if [[ -n "$wayland_display" ]]; then
+    emit --env
+    emit "WAYLAND_DISPLAY=$wayland_display"
+  fi
+
+  if [[ -n "${XDG_SESSION_TYPE:-}" ]]; then
+    emit --env
+    emit "XDG_SESSION_TYPE=$XDG_SESSION_TYPE"
+  elif [[ -n "$wayland_display" ]]; then
+    emit --env
+    emit "XDG_SESSION_TYPE=wayland"
+  fi
+
+  if [[ -n "$xdg_runtime" && -d "$xdg_runtime" ]]; then
+    emit --env
+    emit "XDG_RUNTIME_DIR=$xdg_runtime"
+    if [[ -n "$wayland_display" && -S "$xdg_runtime/$wayland_display" ]]; then
+      emit --volume
+      emit "$xdg_runtime/$wayland_display:$xdg_runtime/$wayland_display:rw"
+      has_wayland=1
+    else
+      emit --volume
+      emit "$xdg_runtime:$xdg_runtime:rw"
+    fi
+  fi
+fi
+
+# ------------------------------------------------------------
+# 3) SELinux
+# ------------------------------------------------------------
+
+if command -v getenforce >/dev/null 2>&1; then
+  selinux_state="$(getenforce 2>/dev/null || true)"
+  if [[ -n "$selinux_state" && "$selinux_state" != "Disabled" ]]; then
+    emit --security-opt
+    emit "label=disable"
+  fi
+fi
+
+# ------------------------------------------------------------
+# 4) QT_QPA_PLATFORM
+# ------------------------------------------------------------
+
+if [[ "$has_wayland" -eq 1 ]]; then
+  emit --env
+  emit "QT_QPA_PLATFORM=wayland"
+else
+  emit --env
+  emit "QT_QPA_PLATFORM=xcb"
+fi
+
+# Final sanity check
+if [[ -z "$display" && "$has_wayland" -eq 0 ]]; then
+  warn "No display method detected. The container GUI will not be able to connect to a display."
+fi

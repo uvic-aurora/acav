@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "%{inputs}",
+    "command": "clang++ @%{inputs}/compile_flags.rsp",
+    "file": "%{inputs}/response_file.cpp"
+  }
+]

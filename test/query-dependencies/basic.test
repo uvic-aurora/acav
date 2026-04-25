@@ -1,0 +1,20 @@
+# Test 1: Simple case - standard library includes only
+# REQUIRES: query-deps
+
+# RUN: rm -rf %t && mkdir -p %t
+# RUN: cp %S/Inputs/simple.cpp %t/
+# RUN: sed -e 's|%{inputs}|%t|g' -e 's|%{resource-dir}|%resource-dir|g' -e 's|%{isysroot-flag}|%isysroot-flag|g' %S/Inputs/simple_compdb.json > %t/compile_commands.json
+
+# RUN: %query-deps --compilation-database=%t/compile_commands.json --output=%t/output.json
+# RUN: cat %t/output.json | %FileCheck %s --check-prefix=SIMPLE
+
+# Verify statistics and structure
+# SIMPLE: "files": [
+# SIMPLE-NEXT:   {
+# SIMPLE:     "headerCount":
+# SIMPLE:     "path": "{{/.*}}simple.cpp"
+# SIMPLE: "statistics": {
+# SIMPLE-DAG:   "failureCount": 0
+# SIMPLE-DAG:   "successCount": 1
+# SIMPLE-DAG:   "totalCount": 1
+# SIMPLE-DAG:   "totalHeaderCount":

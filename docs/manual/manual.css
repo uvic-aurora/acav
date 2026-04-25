@@ -1,0 +1,18 @@
+/* Extra stylesheet for Doxygen manual pages. */
+
+.contents .textblock > p > img.inline {
+  display: block;
+  max-width: 85%;
+  height: auto;
+  margin: 1rem auto 0.75rem;
+  border: 1px solid #d8dfeb;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.contents .textblock > p > em {
+  display: block;
+  max-width: 85%;
+  margin: 0 auto 1.5rem;
+  text-align: center;
+  color: #5a6480;
+}

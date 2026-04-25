@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "%{inputs}",
+    "command": "clang++ %{isysroot-flag} -resource-dir %{resource-dir} -I%{inputs} -c %{inputs}/user_only_main.cpp -o %{inputs}/user_only_main.o",
+    "file": "%{inputs}/user_only_main.cpp"
+  }
+]

@@ -1,0 +1,46 @@
+#! /usr/bin/env python3
+
+#$!{
+# Aurora Clang AST Viewer (ACAV)
+# 
+# Copyright (c) 2026 Min Liu
+# Copyright (c) 2026 Michael David Adams
+# 
+# SPDX-License-Identifier: GPL-2.0-or-later
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <https://www.gnu.org/licenses/>.
+#}$!
+
+# This file is part of ACAV.
+import os
+import sys
+
+# CMake will substitute these variables
+config.acav_src_root = "@PROJECT_SOURCE_DIR@"
+config.acav_obj_root = "@PROJECT_BINARY_DIR@"
+config.acav_bin_dir = "@CMAKE_RUNTIME_OUTPUT_DIRECTORY@"
+config.llvm_tools_dir = "@LLVM_TOOLS_BINARY_DIR@"
+config.python_executable = "@Python3_EXECUTABLE@"
+config.clang_resource_dir = "@CLANG_RESOURCE_DIR@"
+config.isysroot_flag = "@ISYSROOT_FLAG@"
+
+# Helper function to normalize paths
+def path(p):
+    return os.path.normpath(p)
+
+# Load the main configuration
+lit_config.load_config(
+    config,
+    os.path.join(config.acav_src_root, "test/lit.cfg.py")
+)

@@ -1,0 +1,33 @@
+#$!{
+# Aurora Clang AST Viewer (ACAV)
+# 
+# Copyright (c) 2026 Min Liu
+# Copyright (c) 2026 Michael David Adams
+# 
+# SPDX-License-Identifier: GPL-2.0-or-later
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <https://www.gnu.org/licenses/>.
+#}$!
+
+# AcavGlobalList.cmake
+# Provides functions for managing named global lists across the build tree.
+
+function(acav_global_list_add LIST_NAME)
+  set_property(GLOBAL APPEND PROPERTY ${LIST_NAME} ${ARGN})
+endfunction()
+
+function(acav_global_list_get LIST_NAME OUT_VAR)
+  get_property(RESULT GLOBAL PROPERTY ${LIST_NAME})
+  set(${OUT_VAR} ${RESULT} PARENT_SCOPE)
+endfunction()
