@@ -5,6 +5,7 @@
 #include <clang/AST/ASTContext.h>
 #include <clang/Basic/SourceLocation.h>
 #include <clang/Basic/SourceManager.h>
+#include <vector>
 
 using namespace acav;
 
@@ -134,6 +135,45 @@ TEST_CASE("AstViewNode tree structure", "[AstViewNode]") {
   }
 
   // context destructor will clean up all nodes
+}
+
+TEST_CASE("SourceLocationIndex point query returns containing nodes",
+          "[SourceLocationIndex]") {
+  AstContext context;
+
+  auto makeNode = [&](const char *kind, unsigned beginLine,
+                      unsigned beginColumn, unsigned endLine,
+                      unsigned endColumn) {
+    SourceRange range(SourceLocation(1, beginLine, beginColumn),
+                      SourceLocation(1, endLine, endColumn));
+    AcavJson props;
+    props["kind"] = InternedString(kind);
+    AstNode *astNode = context.createAstNode(props, range);
+    AstViewNode *viewNode = context.createAstViewNode(astNode);
+    context.indexNode(viewNode);
+    return viewNode;
+  };
+
+  AstViewNode *root = makeNode("TranslationUnitDecl", 1, 1, 100, 1);
+  AstViewNode *functionA = makeNode("FunctionDecl", 10, 1, 20, 1);
+  AstViewNode *stmtA = makeNode("ReturnStmt", 12, 1, 12, 10);
+  AstViewNode *functionB = makeNode("FunctionDecl", 80, 1, 90, 1);
+  AstViewNode *stmtB = makeNode("ReturnStmt", 85, 1, 85, 10);
+
+  root->addChild(functionA);
+  functionA->addChild(stmtA);
+  root->addChild(functionB);
+  functionB->addChild(stmtB);
+
+  context.finalizeLocationIndex();
+
+  const SourceLocationIndex &index = context.getLocationIndex();
+  std::vector<AstViewNode *> matches = index.getNodesAt(1, 85, 5);
+
+  REQUIRE(matches.size() == 3);
+  REQUIRE(matches[0] == stmtB);
+  REQUIRE(matches[1] == functionB);
+  REQUIRE(matches[2] == root);
 }
 
 TEST_CASE("AstViewNode reference counting", "[AstViewNode]") {

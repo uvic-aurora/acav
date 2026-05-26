@@ -23,6 +23,7 @@
 #include "core/SourceLocationIndex.h"
 #include "core/AstNode.h"
 #include <algorithm>
+#include <utility>
 
 namespace acav {
 
@@ -49,8 +50,44 @@ bool Interval::operator<(const Interval &other) const {
 }
 
 // ============================================================================
-// IntervalTree Implementation (using sorted vector)
+// IntervalTree Implementation
 // ============================================================================
+
+IntervalTree::SourcePoint IntervalTree::beginPoint(const Interval &interval) {
+  return {interval.beginLine, interval.beginColumn};
+}
+
+IntervalTree::SourcePoint IntervalTree::endPoint(const Interval &interval) {
+  return {interval.endLine, interval.endColumn};
+}
+
+bool IntervalTree::pointLess(SourcePoint lhs, SourcePoint rhs) {
+  if (lhs.line != rhs.line) {
+    return lhs.line < rhs.line;
+  }
+  return lhs.column < rhs.column;
+}
+
+bool IntervalTree::startsAfter(const Interval &interval, SourcePoint point) {
+  return pointLess(point, beginPoint(interval));
+}
+
+bool IntervalTree::endsBefore(const Interval &interval, SourcePoint point) {
+  return pointLess(endPoint(interval), point);
+}
+
+bool IntervalTree::intervalEndGreater(const Interval &lhs,
+                                      const Interval &rhs) {
+  SourcePoint lhsEnd = endPoint(lhs);
+  SourcePoint rhsEnd = endPoint(rhs);
+  if (lhsEnd.line != rhsEnd.line) {
+    return lhsEnd.line > rhsEnd.line;
+  }
+  if (lhsEnd.column != rhsEnd.column) {
+    return lhsEnd.column > rhsEnd.column;
+  }
+  return pointLess(beginPoint(rhs), beginPoint(lhs));
+}
 
 void IntervalTree::insert(Interval interval) {
   intervals_.push_back(interval);
@@ -63,6 +100,7 @@ void IntervalTree::finalize() {
 
   // Sort intervals by start position
   std::sort(intervals_.begin(), intervals_.end());
+  queryRoot_ = buildQueryTree(intervals_);
   finalized_ = true;
 }
 
@@ -70,21 +108,7 @@ std::vector<AstViewNode *> IntervalTree::query(unsigned line,
                                                 unsigned column) const {
   std::vector<AstViewNode *> results;
 
-  // Linear scan through intervals to find all matches
-  // This is O(n) but with good cache locality
-  // For most files, n is reasonable (<10k intervals)
-  for (const Interval &interval : intervals_) {
-    // Early exit optimization: if interval starts after query point, stop
-    if (interval.beginLine > line ||
-        (interval.beginLine == line && interval.beginColumn > column)) {
-      break;
-    }
-
-    // Check if interval contains the point
-    if (interval.contains(line, column)) {
-      results.push_back(interval.node);
-    }
-  }
+  queryPoint(queryRoot_.get(), SourcePoint{line, column}, results);
 
   // Sort by depth (deepest first = most specific)
   std::sort(results.begin(), results.end(),
@@ -93,6 +117,74 @@ std::vector<AstViewNode *> IntervalTree::query(unsigned line,
             });
 
   return results;
+}
+
+std::unique_ptr<IntervalTree::QueryNode>
+IntervalTree::buildQueryTree(std::vector<Interval> intervals) {
+  if (intervals.empty()) {
+    return nullptr;
+  }
+
+  SourcePoint center = beginPoint(intervals[intervals.size() / 2]);
+  std::vector<Interval> left;
+  std::vector<Interval> right;
+  std::vector<Interval> crossing;
+  left.reserve(intervals.size() / 2);
+  right.reserve(intervals.size() / 2);
+  crossing.reserve(intervals.size());
+
+  for (const Interval &interval : intervals) {
+    if (endsBefore(interval, center)) {
+      left.push_back(interval);
+    } else if (startsAfter(interval, center)) {
+      right.push_back(interval);
+    } else {
+      crossing.push_back(interval);
+    }
+  }
+
+  auto node = std::make_unique<QueryNode>();
+  node->center = center;
+  node->byBegin = std::move(crossing);
+  node->byEndDescending = node->byBegin;
+  std::sort(node->byEndDescending.begin(), node->byEndDescending.end(),
+            intervalEndGreater);
+  node->left = buildQueryTree(std::move(left));
+  node->right = buildQueryTree(std::move(right));
+  return node;
+}
+
+void IntervalTree::queryPoint(const QueryNode *node, SourcePoint point,
+                              std::vector<AstViewNode *> &results) {
+  if (!node) {
+    return;
+  }
+
+  if (pointLess(point, node->center)) {
+    for (const Interval &interval : node->byBegin) {
+      if (startsAfter(interval, point)) {
+        break;
+      }
+      results.push_back(interval.node);
+    }
+    queryPoint(node->left.get(), point, results);
+    return;
+  }
+
+  if (pointLess(node->center, point)) {
+    for (const Interval &interval : node->byEndDescending) {
+      if (endsBefore(interval, point)) {
+        break;
+      }
+      results.push_back(interval.node);
+    }
+    queryPoint(node->right.get(), point, results);
+    return;
+  }
+
+  for (const Interval &interval : node->byBegin) {
+    results.push_back(interval.node);
+  }
 }
 
 AstViewNode *IntervalTree::queryFirstContained(unsigned beginLine,
@@ -152,6 +244,14 @@ void SourceLocationIndex::addNode(AstViewNode *node) {
 
   // Skip invalid locations (compiler-generated nodes)
   if (fileId == FileManager::InvalidFileID) {
+    return;
+  }
+
+  bool endsBeforeStart =
+      range.end().line() < range.begin().line() ||
+      (range.end().line() == range.begin().line() &&
+       range.end().column() < range.begin().column());
+  if (endsBeforeStart) {
     return;
   }
 
