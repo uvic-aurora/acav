@@ -80,6 +80,10 @@ LogDock::LogDock(QWidget *parent)
   tabs_->addTab(errorView_, tr("Errors"));
   tabs_->addTab(infoView_, tr("Info"));
   tabs_->addTab(debugView_, tr("Debug"));
+  allView_->setObjectName("logAllView");
+  errorView_->setObjectName("logErrorView");
+  infoView_->setObjectName("logInfoView");
+  debugView_->setObjectName("logDebugView");
   tabs_->setMinimumHeight(0); // Allow dock to be resized small
   setWidget(container);
 
@@ -106,6 +110,19 @@ LogDock::LogDock(QWidget *parent)
   flushTimer_->setInterval(100);
   connect(flushTimer_, &QTimer::timeout, this, &LogDock::flushPending);
   flushTimer_->start();
+}
+
+void LogDock::applyFont(const QFont &font) {
+  setFont(font);
+  tabs_->setFont(font);
+
+  for (QPlainTextEdit *view : {allView_, errorView_, infoView_, debugView_}) {
+    if (!view) {
+      continue;
+    }
+    view->setFont(font);
+    view->document()->setDefaultFont(font);
+  }
 }
 
 void LogDock::enqueue(const LogEntry &entry) {

@@ -326,7 +326,7 @@ void MainWindow::setupMenuBar() {
       declContextView_->applyFont(baseFont);
     } else if (focusedDock_ == logDock_) {
       logFontSize_ = defaultSize;
-      logDock_->setFont(baseFont);
+      logDock_->applyFont(baseFont);
     } else {
       // Fallback: reset all if no dock focused
       tuFontSize_ = defaultSize;
@@ -856,7 +856,13 @@ void MainWindow::setupDockWidgets() {
               {300, 450, 450, 200}, Qt::Horizontal);
 
   // Set vertical distribution: top docks large, log dock small (~4 lines)
-  const int lineHeight = QFontMetrics(logDock_->font()).lineSpacing();
+  QFont initialLogFont = logDock_->font();
+  const QString configuredFamily = AppConfig::instance().getFontFamily();
+  if (!configuredFamily.isEmpty()) {
+    initialLogFont.setFamily(configuredFamily);
+  }
+  initialLogFont.setPointSize(AppConfig::instance().getFontSize());
+  const int lineHeight = QFontMetrics(initialLogFont).lineSpacing();
   const int logDockHeight =
       lineHeight * 4 + 70; // 4 lines + padding for tab bar + toolbar
   const int topDockHeight =
@@ -1672,7 +1678,9 @@ void MainWindow::applyFontSize(int size) {
   if (declContextView_) {
     declContextView_->applyFont(baseFont);
   }
-  applyFont(logDock_);
+  if (logDock_) {
+    logDock_->applyFont(baseFont);
+  }
   applyFont(nodeCycleWidget_);
   applyFont(astSearchQuickInput_);
   applyFont(astSearchPopup_);
@@ -1751,7 +1759,17 @@ void MainWindow::adjustFontSize(int delta) {
       declContextView_->applyFont(baseFont);
     }
   } else if (focusedDock_ == logDock_) {
-    adjustWidget(logDock_, &logFontSize_);
+    int nextSize = logFontSize_ + delta;
+    if (nextSize < kMinFontSize) {
+      nextSize = kMinFontSize;
+    } else if (nextSize > kMaxFontSize) {
+      nextSize = kMaxFontSize;
+    }
+    if (nextSize != logFontSize_ && logDock_) {
+      logFontSize_ = nextSize;
+      baseFont.setPointSize(nextSize);
+      logDock_->applyFont(baseFont);
+    }
   } else {
     // Fallback: apply to all (e.g., when no dock focused)
     int nextSize = currentFontSize_ + delta;

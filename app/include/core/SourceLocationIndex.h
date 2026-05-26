@@ -26,6 +26,7 @@
 
 #include "common/FileManager.h"
 #include <map>
+#include <memory>
 #include <vector>
 
 namespace acav {
@@ -51,15 +52,16 @@ struct Interval {
   bool operator<(const Interval &other) const;
 };
 
-/// \brief Sorted array for interval queries
+/// \brief Static interval index for source-location queries
 ///
-/// Stores source ranges in a sorted vector for efficient point queries.
-/// Uses binary search for lookup.
+/// Stores source ranges in a sorted vector for range-selection queries and
+/// builds a centered interval tree for point queries.
 ///
 /// Complexity:
 /// - Insert: O(1) amortized (vector push_back)
-/// - Finalize: O(n log n) (one-time sort)
-/// - Query: O(log n + k) where k = number of matches
+/// - Finalize: O(n log n) (one-time sort and interval-tree build)
+/// - Point query: O(log n + k) before result-depth ordering, where k is the
+///   number of matches
 class IntervalTree {
 public:
   IntervalTree() = default;
@@ -95,8 +97,33 @@ public:
   std::size_t size() const { return intervals_.size(); }
 
 private:
+  struct SourcePoint {
+    unsigned line;
+    unsigned column;
+  };
+
+  struct QueryNode {
+    SourcePoint center;
+    std::vector<Interval> byBegin;
+    std::vector<Interval> byEndDescending;
+    std::unique_ptr<QueryNode> left;
+    std::unique_ptr<QueryNode> right;
+  };
+
   std::vector<Interval> intervals_;
+  std::unique_ptr<QueryNode> queryRoot_;
   bool finalized_ = false;
+
+  static std::unique_ptr<QueryNode>
+  buildQueryTree(std::vector<Interval> intervals);
+  static void queryPoint(const QueryNode *node, SourcePoint point,
+                         std::vector<AstViewNode *> &results);
+  static SourcePoint beginPoint(const Interval &interval);
+  static SourcePoint endPoint(const Interval &interval);
+  static bool pointLess(SourcePoint lhs, SourcePoint rhs);
+  static bool startsAfter(const Interval &interval, SourcePoint point);
+  static bool endsBefore(const Interval &interval, SourcePoint point);
+  static bool intervalEndGreater(const Interval &lhs, const Interval &rhs);
 
   unsigned getDepth(AstViewNode *node) const;
 };

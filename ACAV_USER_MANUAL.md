@@ -473,7 +473,7 @@ Use **File → Reload Configuration** to apply changes without restarting.
 ### Available Options
 
 **Font Size** (`ui/fontSize`)
-Adjust font size for tree views and source code editor (8-32 pt). Default: 11.
+Adjust font size for tree views, source code editor, and log panel (8-32 pt). Default: 11.
 
 **Font Family** (`ui/fontFamily`)
 Optional UI font family. Leave empty to use the system default.

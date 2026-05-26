@@ -102,7 +102,7 @@ public:
   /// \brief Custom cache root directory (default: ~/.cache/acav/)
   QString getCacheRoot() const;
 
-  /// \brief Editor/UI font size (default: 11)
+  /// \brief Editor/UI font size, including log views (default: 11)
   int getFontSize() const;
 
   /// \brief Editor/UI font family (default: empty = system default)

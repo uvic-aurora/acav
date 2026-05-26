@@ -13,7 +13,9 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMetaObject>
+#include <QPlainTextEdit>
 #include <QStringListModel>
+#include <QTextDocument>
 #include <QToolButton>
 #include <QTreeView>
 #include <catch2/catch_test_macros.hpp>
@@ -196,6 +198,40 @@ TEST_CASE("MainWindow AST search popup font follows configured base size",
   const int configuredSize = AppConfig::instance().getFontSize();
   REQUIRE(popup->font().pointSize() == configuredSize);
   REQUIRE(quickInput->font().pointSize() == configuredSize);
+}
+
+TEST_CASE("LogDock applies font to all log editors",
+          "[UIFix][LogDock][Font]") {
+  LogDock dock;
+  QFont logFont = QApplication::font();
+  logFont.setPointSize(17);
+
+  dock.applyFont(logFont);
+
+  const auto views = dock.findChildren<QPlainTextEdit *>();
+  REQUIRE(views.size() == 4);
+  for (QPlainTextEdit *view : views) {
+    REQUIRE(view->font().pointSize() == 17);
+    REQUIRE(view->document()->defaultFont().pointSize() == 17);
+  }
+}
+
+TEST_CASE("MainWindow log panel font follows configured base size",
+          "[UIFix][MainWindow][LogDock][Font]") {
+  MainWindow window;
+  window.show();
+  QApplication::processEvents();
+
+  auto *logDock = window.findChild<LogDock *>("logDock");
+  REQUIRE(logDock != nullptr);
+
+  const int configuredSize = AppConfig::instance().getFontSize();
+  const auto views = logDock->findChildren<QPlainTextEdit *>();
+  REQUIRE(views.size() == 4);
+  for (QPlainTextEdit *view : views) {
+    REQUIRE(view->font().pointSize() == configuredSize);
+    REQUIRE(view->document()->defaultFont().pointSize() == configuredSize);
+  }
 }
 
 TEST_CASE("MainWindow AST search popup resizes with AST panel",
