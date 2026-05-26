@@ -32,6 +32,7 @@
 
 class QPlainTextEdit;
 class QTabWidget;
+class QFont;
 
 namespace acav {
 
@@ -40,6 +41,9 @@ class LogDock : public QDockWidget {
 
 public:
   explicit LogDock(QWidget *parent = nullptr);
+
+  /// \brief Apply the display font to all log tabs and text editors.
+  void applyFont(const QFont &font);
 
 public slots:
   void enqueue(const LogEntry &entry);

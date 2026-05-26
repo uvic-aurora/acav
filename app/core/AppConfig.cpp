@@ -74,7 +74,7 @@ void AppConfig::createDefaultConfigFile(const QString &path) {
   out << "# Example: fontFamily=Helvetica Neue\n";
   out << "fontFamily=\n";
   out << "\n";
-  out << "# Font size for tree views and source code editor\n";
+  out << "# Font size for tree views, source code editor, and logs\n";
   out << "# Valid range: 8-32\n";
   out << "# Default: 11\n";
   out << "fontSize=11\n";
